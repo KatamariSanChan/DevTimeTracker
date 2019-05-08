@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System;
 using System.Data.Entity;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace UnitTests
@@ -11,31 +12,48 @@ namespace UnitTests
     {
         private void WriteIssueDetails(Issue issue)
         {
-            Console.Write(string.Format("{0},{1},{2},{3}", issue.Id, issue.RedmineKey, issue.Description, issue.IsOpen));
+            Console.WriteLine(string.Format("{0},{1},{2},{3}", issue.Id, issue.RedmineKey, issue.Description, issue.IsOpen));
         }
 
         private Issue CreateTestIssue()
         {
-            return new Issue(99999, "TEST ISSUE", true);
+            int key = DateTime.Now.Millisecond;
+            return new Issue(key, "TEST ISSUE", true);
         }
 
         [TestMethod]
-        public void SaveDeleteTestIssue()
+        public void SaveTestIssue()
         {
             DTTDatabaseContext context = new DTTDatabaseContext();
-            Issue newIssue = CreateTestIssue();
 
+            // create and add new issues to DbSet
+            Issue newIssue = CreateTestIssue();
             Issue addedIssue = context.Issues.Add(newIssue);
             context.SaveChanges();
 
-            FetchAllIssues();
+            try
+            {
+                // reload DbSet and fetch newly added Issue
+                DTTDatabaseContext contextNew = new DTTDatabaseContext();
+                contextNew.Issues.Load();
+                Issue refreshedIssue = contextNew.Issues.Find(addedIssue.Id);
 
-            context.Issues.Remove(addedIssue);
-            context.SaveChanges();
+                // make sure properties match
+                Assert.AreEqual(addedIssue.Id, refreshedIssue.Id);
+                Assert.AreEqual(addedIssue.RedmineKey, refreshedIssue.RedmineKey);
+                Assert.AreEqual(addedIssue.Description, refreshedIssue.Description);
+                Assert.AreEqual(addedIssue.IsOpen, refreshedIssue.IsOpen);
+            }
+            finally
+            {
+                // remove newly added issue
+                context.Issues.Remove(addedIssue);
+                context.SaveChanges();
+            }
         }
 
         [TestMethod]
-        public void FetchAllIssues()
+        public void WriteAllIssuesToConsole()
         {
             DTTDatabaseContext context = new DTTDatabaseContext();
             foreach (Issue i in context.Issues)
